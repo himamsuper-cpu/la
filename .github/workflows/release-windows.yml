@@ -53,6 +53,7 @@ jobs:
         shell: pwsh
         run: |
           Set-Location $env:XMCL_SOURCE
+          pnpm run build:renderer
           $env:BUILD_TARGET = 'windows'
           pnpm run build
           $destination = Join-Path $env:GITHUB_WORKSPACE 'windows/dist'
