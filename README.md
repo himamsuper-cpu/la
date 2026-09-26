@@ -21,11 +21,9 @@ Install PojavLauncher or Zalith Launcher separately. In Noom, open Settings and 
 
 ## GitHub Release
 
-Pushing a version tag builds a debug-signed Android APK and publishes it as a GitHub Release asset:
+The beta APK is debug-signed for direct testing/sideloading, not Google Play distribution. Pushing a `v*` tag starts a release build; the same workflow can also be run manually from GitHub Actions with an existing tag.
 
 ```sh
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.1.0-beta
+git push origin v0.1.0-beta
 ```
-
-The APK is debug-signed for direct testing/sideloading, not Google Play distribution.
