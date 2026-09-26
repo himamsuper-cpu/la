@@ -7,7 +7,7 @@ on:
         description: Existing Git tag to build and publish
         required: true
         type: string
-        default: v0.1.0-beta
+        default: v1.5.0-beta
   push:
     tags:
       - 'v*'

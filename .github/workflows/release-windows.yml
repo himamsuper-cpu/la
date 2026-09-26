@@ -1,0 +1,78 @@
+name: Windows Beta Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Windows release tag
+        required: true
+        type: string
+        default: windows-v1.1.9
+  push:
+    tags:
+      - 'windows-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out Noom
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Check out pinned XMCL runtime
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'xmcl'
+          git clone --filter=blob:none https://github.com/Voxelum/x-minecraft-launcher.git $source
+          git -C $source checkout 9f1354bd6dc74e76ef9eebcb6a424f48bf3ca064
+          "XMCL_SOURCE=$source" >> $env:GITHUB_ENV
+
+      - name: Install XMCL workspace dependencies
+        shell: pwsh
+        run: |
+          Set-Location $env:XMCL_SOURCE
+          pnpm install --frozen-lockfile
+
+      - name: Apply Noom branding and license notices
+        run: node windows/rebrand-xmcl.mjs "$env:XMCL_SOURCE"
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          Set-Location $env:XMCL_SOURCE
+          $env:BUILD_TARGET = 'windows'
+          pnpm run build
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'windows/dist'
+          New-Item -ItemType Directory -Force $destination | Out-Null
+          Copy-Item 'xmcl-electron-app/build/output/*.exe' $destination
+          Copy-Item 'xmcl-electron-app/build/output/*.blockmap' $destination -ErrorAction SilentlyContinue
+          Copy-Item 'xmcl-electron-app/build/Noom-Third-Party-Notices.txt' $destination
+
+      - name: Upload beta build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Noom-Launcher-Windows-${{ inputs.release_tag || github.ref_name }}
+          path: windows/dist/*
+
+      - name: Publish Windows beta release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Noom Launcher ${{ inputs.release_tag || github.ref_name }}
+          prerelease: true
+          generate_release_notes: true
+          files: windows/dist/*

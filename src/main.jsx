@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import {
   ArrowDownToLine, ArrowLeft, ArrowUpRight, Blocks, Check, ChevronDown,
   CircleHelp, Compass, Cpu, Download, Gamepad2, HardDrive, Layers3, LoaderCircle,
-  LogOut, Plus, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles,
+  LogOut, Plus, Search, Settings2, ShieldCheck, Sparkles,
   UserRound, X
 } from 'lucide-react';
 import './styles.css';
@@ -15,21 +15,86 @@ const pages = [
   { id: 'instances', label: 'Instalasi', icon: Layers3 },
 ];
 
-const minecraftVersions = ['1.21.4', '1.21.1', '1.20.1', '1.19.4'];
-const modLoaders = ['Fabric'];
+const fallbackMinecraftVersions = ['1.21.4', '1.21.1', '1.20.1', '1.19.4'];
+const modLoaders = ['Fabric', 'Forge', 'NeoForge'];
+const contentTypes = [
+  { id: 'mod', label: 'Mod' },
+  { id: 'modpack', label: 'Modpack' },
+  { id: 'resourcepack', label: 'Resource pack' },
+  { id: 'shader', label: 'Shader' },
+  { id: 'datapack', label: 'Data pack' },
+  { id: 'world', label: 'World' },
+];
 const NoomAndroid = registerPlugin('NoomAndroid');
 
 function App() {
   const [page, setPage] = useState('home');
-  const [version, setVersion] = useState(minecraftVersions[0]);
+  const [initialVersion] = useState(() => localStorage.getItem('noom.minecraftVersion') || '');
+  const [version, setVersion] = useState(initialVersion || fallbackMinecraftVersions[0]);
+  const [minecraftVersions, setMinecraftVersions] = useState(fallbackMinecraftVersions);
+  const [versionsLoading, setVersionsLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [query, setQuery] = useState('');
   const [loader, setLoader] = useState(modLoaders[0]);
+  const [contentType, setContentType] = useState('mod');
   const [mods, setMods] = useState([]);
   const [modsLoading, setModsLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [modsFolderConfigured, setModsFolderConfigured] = useState(false);
+  const [offlineProfiles, setOfflineProfiles] = useState(() => {
+    try {
+      const savedProfiles = JSON.parse(localStorage.getItem('noom.offlineProfiles') || '[]');
+      return Array.isArray(savedProfiles) ? savedProfiles : [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeOfflineProfile, setActiveOfflineProfile] = useState(() => localStorage.getItem('noom.activeOfflineProfile') || '');
+
+  useEffect(() => {
+    localStorage.setItem('noom.offlineProfiles', JSON.stringify(offlineProfiles));
+  }, [offlineProfiles]);
+
+  useEffect(() => {
+    localStorage.setItem('noom.activeOfflineProfile', activeOfflineProfile);
+  }, [activeOfflineProfile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json')
+      .then((response) => {
+        if (!response.ok) throw new Error('Manifest versi Minecraft tidak tersedia.');
+        return response.json();
+      })
+      .then((manifest) => {
+        if (cancelled) return;
+        const versions = manifest.versions?.map((entry) => entry.id).filter(Boolean) ?? [];
+        if (versions.length === 0) throw new Error('Manifest versi Minecraft kosong.');
+        setMinecraftVersions(versions);
+        setVersion((current) => {
+          if (initialVersion && versions.includes(initialVersion)) return initialVersion;
+          if (versions.includes(manifest.latest?.release)) return manifest.latest.release;
+          return versions.includes(current) ? current : versions[0];
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          const fallback = initialVersion && !fallbackMinecraftVersions.includes(initialVersion)
+            ? [initialVersion, ...fallbackMinecraftVersions]
+            : fallbackMinecraftVersions;
+          setMinecraftVersions(fallback);
+          setVersion(initialVersion || fallback[0]);
+        }
+      })
+      .finally(() => { if (!cancelled) setVersionsLoading(false); });
+    return () => { cancelled = true; };
+  }, [initialVersion]);
+
+  useEffect(() => {
+    if (version) localStorage.setItem('noom.minecraftVersion', version);
+  }, [version]);
 
   useEffect(() => {
     NoomAndroid.getModsFolder().then((result) => setModsFolderConfigured(result.configured)).catch(() => {});
@@ -41,8 +106,8 @@ function App() {
     const timer = setTimeout(async () => {
       setModsLoading(true);
       try {
-        const facets = [['project_type:mod']];
-        if (loader !== modLoaders[0]) facets.push([`categories:${loader.toLowerCase()}`]);
+        const facets = [[`project_type:${contentType}`]];
+        if (contentType === 'mod' || contentType === 'modpack') facets.push([`categories:${loader.toLowerCase()}`]);
         const params = new URLSearchParams({
           query,
           limit: '20',
@@ -60,7 +125,7 @@ function App() {
       }
     }, 250);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [page, query, loader]);
+  }, [page, query, loader, contentType]);
 
   async function openPojav() {
     setBusy(true);
@@ -85,15 +150,57 @@ function App() {
     }
   }
 
+  async function downloadContent(project) {
+    if (contentType === 'mod') {
+      await addMod(project);
+      return;
+    }
+    setDownloadingId(project.project_id);
+    setStatus(`Mencari berkas ${project.title} untuk Minecraft ${version}...`);
+    try {
+      const params = new URLSearchParams({ game_versions: JSON.stringify([version]) });
+      if (contentType === 'modpack') params.set('loaders', JSON.stringify([loader.toLowerCase()]));
+      const response = await fetch(`https://api.modrinth.com/v2/project/${encodeURIComponent(project.project_id)}/version?${params}`);
+      if (!response.ok) throw new Error('Tidak dapat memuat versi konten dari Modrinth.');
+      const versions = await response.json();
+      const compatibleVersion = versions.find((item) => item.files?.some((file) => file.primary)) || versions[0];
+      const file = compatibleVersion?.files?.find((item) => item.primary) || compatibleVersion?.files?.[0];
+      if (!file?.url || !file.filename) throw new Error(`Tidak ada berkas ${contentTypes.find((item) => item.id === contentType)?.label.toLowerCase()} untuk Minecraft ${version}.`);
+      setStatus(`Menyiapkan unduhan ${file.filename}...`);
+      const result = await NoomAndroid.saveDownload({ url: file.url, filename: file.filename });
+      setStatus(result.message);
+    } catch (error) {
+      setStatus(error.message || 'Unduhan gagal.');
+    } finally {
+      setDownloadingId('');
+    }
+  }
+
   async function connectAccount(type) {
-    setStatus('Membuka PojavLauncher untuk pengelolaan akun...');
+    setStatus(`Login ${type === 'microsoft' ? 'Microsoft' : 'Ely.by'} belum tersedia langsung di Noom. Membuka PojavLauncher untuk autentikasi resmi...`);
     try {
       const result = await NoomAndroid.openPojavLauncher();
       setModal(false);
-      setStatus(`${result.message} Pilih opsi akun ${type === 'elyby' ? 'Ely.by jika tersedia di versi Pojav-mu' : type === 'microsoft' ? 'Microsoft' : 'offline'} di sana.`);
+      setStatus(`${result.message} Noom tidak meminta atau menyimpan kata sandi akun online.`);
     } catch (error) {
       setStatus(error.message);
     }
+  }
+
+  function createOfflineProfile(username) {
+    const name = username.trim();
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) {
+      setStatus('Nama profil harus 3-16 karakter: huruf, angka, atau garis bawah.');
+      return;
+    }
+    if (offlineProfiles.some((profile) => profile.name.toLowerCase() === name.toLowerCase())) {
+      setStatus('Profil dengan nama tersebut sudah ada.');
+      return;
+    }
+    const profile = { id: name.toLowerCase(), name };
+    setOfflineProfiles((current) => [...current, profile]);
+    setActiveOfflineProfile(profile.id);
+    setStatus(`Profil offline ${name} disimpan di aplikasi ini.`);
   }
 
   async function chooseModsFolder() {
@@ -142,27 +249,27 @@ function App() {
           <div className="top-actions">
             <button className="icon-button help-button" title="Bantuan"><CircleHelp size={17} /></button>
             <span className="top-divider" />
-            <button className="profile-button" onClick={() => setModal(true)}>
+            <button className="profile-button" onClick={() => { setStatus(''); setModal(true); }}>
               <span className="avatar"><UserRound size={15} /></span>
-              <span className="profile-copy"><strong>PojavLauncher</strong><small>AKUN DIKELOLA DI SANA</small></span>
+              <span className="profile-copy"><strong>{offlineProfiles.find((profile) => profile.id === activeOfflineProfile)?.name || 'Belum ada akun'}</strong><small>{activeOfflineProfile ? 'PROFIL OFFLINE NOOM' : 'PILIH PROFIL'}</small></span>
               <ChevronDown size={15} />
             </button>
           </div>
         </header>
 
-        {page === 'home' && <HomePage version={version} setVersion={setVersion} onPlay={openPojav} busy={busy} setPage={setPage} status={status} />}
-        {page === 'mods' && <ModsPage query={query} setQuery={setQuery} loader={loader} setLoader={setLoader} mods={mods} loading={modsLoading} onAdd={addMod} status={status} />}
+        {page === 'home' && <HomePage version={version} setVersion={setVersion} versions={minecraftVersions} versionsLoading={versionsLoading} onPlay={openPojav} busy={busy} setPage={setPage} status={status} />}
+        {page === 'mods' && <ModsPage query={query} setQuery={setQuery} loader={loader} version={version} setVersion={setVersion} versions={minecraftVersions} versionsLoading={versionsLoading} contentType={contentType} setContentType={setContentType} mods={mods} loading={modsLoading} downloadingId={downloadingId} onDownload={downloadContent} status={status} />}
         {page === 'instances' && <InstancesPage onOpenPojav={openPojav} />}
         {page === 'settings' && <SettingsPage onChooseModsFolder={chooseModsFolder} modsFolderConfigured={modsFolderConfigured} onOpenPojav={openPojav} />}
       </main>
 
-      {modal && <AccountModal onClose={() => setModal(false)} onConnect={connectAccount} status={status} />}
+      {modal && <AccountModal onClose={() => setModal(false)} onConnect={connectAccount} onCreateOffline={createOfflineProfile} profiles={offlineProfiles} activeProfile={activeOfflineProfile} onSelectProfile={setActiveOfflineProfile} status={status} />}
       {status && !modal && <div className="toast" role="status"><span>{status}</span><button onClick={() => setStatus('')} aria-label="Tutup"><X size={15} /></button></div>}
     </div>
   );
 }
 
-function HomePage({ version, setVersion, onPlay, busy, setPage, status }) {
+function HomePage({ version, setVersion, versions, versionsLoading, onPlay, busy, setPage, status }) {
   return (
     <div className="page home-page">
       <section className="hero">
@@ -179,8 +286,8 @@ function HomePage({ version, setVersion, onPlay, busy, setPage, status }) {
             </button>
             <label className="version-select-wrap">
               <span>TARGET MOD</span>
-              <select value={version} onChange={(event) => setVersion(event.target.value)} aria-label="Pilih versi Minecraft">
-                {minecraftVersions.map((item) => <option key={item}>{item}</option>)}
+              <select value={version} onChange={(event) => setVersion(event.target.value)} aria-label="Pilih versi Minecraft" disabled={versionsLoading}>
+                {versions.map((item) => <option key={item}>{item}</option>)}
               </select>
               <ChevronDown size={14} />
             </label>
@@ -213,13 +320,16 @@ function HomePage({ version, setVersion, onPlay, busy, setPage, status }) {
   );
 }
 
-function ModsPage({ query, setQuery, loader, setLoader, mods, loading, onAdd, status }) {
+function ModsPage({ query, setQuery, loader, version, setVersion, versions, versionsLoading, contentType, setContentType, mods, loading, downloadingId, onDownload, status }) {
+  const selectedType = contentTypes.find((item) => item.id === contentType);
   return (
     <div className="page mods-page">
-      <div className="page-title-row"><div><div className="section-kicker">MODRINTH · MINECRAFT JAVA</div><h1>Katalog mod</h1><p>Modifikasi duniamu, dengan cara yang kamu suka.</p></div><div className="mod-count">{loading ? 'MEMUAT...' : `${mods.length} HASIL`}</div></div>
+      <div className="page-title-row"><div><div className="section-kicker">MODRINTH · MINECRAFT JAVA</div><h1>Jelajahi konten</h1><p>Mod, modpack, resource pack, shader, data pack, dan world.</p></div><div className="mod-count">{loading ? 'MEMUAT...' : `${mods.length} HASIL`}</div></div>
       <div className="mod-toolbar">
         <label className="search-field"><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari mod, pembuat, atau koleksi..." /><kbd>⌘ K</kbd></label>
-        <label className="filter-select"><SlidersHorizontal size={16} /><select value={loader} onChange={(event) => setLoader(event.target.value)} aria-label="Filter loader">{modLoaders.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>
+        <label className="filter-select type-filter"><Blocks size={16} /><select value={contentType} onChange={(event) => setContentType(event.target.value)} aria-label="Pilih jenis konten">{contentTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><ChevronDown size={14} /></label>
+        {(contentType === 'mod' || contentType === 'modpack') && <label className="filter-select loader-filter"><Cpu size={16} /><select value={loader} onChange={(event) => setLoader(event.target.value)} aria-label="Pilih mod loader">{modLoaders.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>}
+        <label className="filter-select version-filter"><Gamepad2 size={16} /><select value={version} onChange={(event) => setVersion(event.target.value)} aria-label="Pilih versi Minecraft" disabled={versionsLoading}>{versions.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={14} /></label>
       </div>
       {status && <div className="catalog-status">{status}</div>}
       <div className="mod-list">
@@ -228,12 +338,15 @@ function ModsPage({ query, setQuery, loader, setLoader, mods, loading, onAdd, st
           <article className="mod-row" key={mod.project_id}>
             <img className="mod-avatar" src={mod.icon_url || ''} alt="" />
             <div className="mod-info"><div className="mod-name-row"><h2>{mod.title}</h2><span className="mod-category">{mod.categories?.[0] ?? 'MOD'}</span></div><p>{mod.description}</p><div className="mod-meta"><span>{mod.author}</span><span className="meta-dot" /><span><Download size={12} /> {Intl.NumberFormat('id-ID', { notation: 'compact' }).format(mod.downloads)}</span><span className="meta-dot" /><span>{mod.follows?.toLocaleString('id-ID')} pengikut</span></div></div>
-            <button className="install-button" onClick={() => onAdd(mod)} title={`Pasang ${mod.title}`}><Plus size={17} /><span>Pasang</span></button>
+            <button className="install-button" onClick={() => onDownload(mod)} disabled={downloadingId === mod.project_id} title={`${contentType === 'mod' ? 'Pasang' : 'Unduh'} ${mod.title}`}>
+              {downloadingId === mod.project_id ? <LoaderCircle className="spin" size={17} /> : contentType === 'mod' ? <Plus size={17} /> : <Download size={17} />}
+              <span>{downloadingId === mod.project_id ? 'Memproses' : contentType === 'mod' ? 'Pasang' : 'Unduh'}</span>
+            </button>
           </article>
         ))}
         {!loading && mods.length === 0 && <div className="empty-results"><Sparkles size={21} /><strong>Belum ada hasil</strong><span>Coba kata pencarian yang berbeda.</span></div>}
       </div>
-      <div className="catalog-footer"><ShieldCheck size={15} /> Katalog disediakan oleh Modrinth <a href="https://modrinth.com" target="_blank" rel="noreferrer">Tentang Modrinth <ArrowUpRight size={12} /></a></div>
+      <div className="catalog-footer"><ShieldCheck size={15} /><span>{contentType === 'mod' ? `Mod ${loader} dipasang ke folder mods; loader tersebut harus sudah dipasang di Pojav.` : contentType === 'modpack' ? `Modpack ${loader} diunduh sebagai .mrpack dan perlu diimpor ke launcher.` : `${selectedType?.label} diunduh ke lokasi yang kamu pilih.`} Katalog disediakan oleh Modrinth.</span><a href="https://modrinth.com" target="_blank" rel="noreferrer">Modrinth <ArrowUpRight size={12} /></a></div>
     </div>
   );
 }
@@ -255,28 +368,40 @@ function SettingsPage({ onChooseModsFolder, modsFolderConfigured, onOpenPojav })
       <div className="page-title-row"><div><div className="section-kicker">INTEGRASI ANDROID</div><h1>Pengaturan</h1><p>Hubungkan folder mod Pojav dengan Noom.</p></div></div>
       <section className="settings-section"><div className="settings-heading"><h2>Folder mod</h2><span>01</span></div><div className="setting-row"><div><strong>{modsFolderConfigured ? 'Folder mods dipilih' : 'Pilih folder mods Pojav'}</strong><span>Pilih folder `mods` aktif yang digunakan profil Fabric di Pojav.</span></div><button className="outline-action" onClick={onChooseModsFolder}><HardDrive size={15} /> {modsFolderConfigured ? 'Ganti folder' : 'Pilih folder'}</button></div></section>
       <section className="settings-section"><div className="settings-heading"><h2>Akun dan game</h2><span>02</span></div><div className="setting-row"><div><strong>Dikelola di PojavLauncher</strong><span>Noom tidak menerima atau menyimpan token maupun password akun.</span></div><button className="outline-action" onClick={onOpenPojav}><ArrowUpRight size={15} /> Buka Pojav</button></div></section>
+      <section className="settings-section"><div className="settings-heading"><h2>Kontrol permainan</h2><span>03</span></div><div className="setting-row"><div><strong>Atur tombol di PojavLauncher</strong><span>Gunakan editor kontrol Pojav untuk memilih layout sentuh, tombol keyboard, dan pemetaan aksi.</span></div><button className="outline-action" onClick={onOpenPojav}><Gamepad2 size={15} /> Buka Pojav</button></div></section>
       <div className="settings-foot"><ShieldCheck size={15} /> Unduhan mod berasal dari Modrinth; autentikasi dilakukan di Pojav.</div>
     </div>
   );
 }
 
-function AccountModal({ onClose, onConnect, status }) {
+function AccountModal({ onClose, onConnect, onCreateOffline, profiles, activeProfile, onSelectProfile, status }) {
   const [tab, setTab] = useState('offline');
+  const [username, setUsername] = useState('');
   return (
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-heading">
         <div className="modal-top"><span className="section-kicker">AKUN MINECRAFT</span><button className="icon-button" onClick={onClose} aria-label="Tutup"><X size={19} /></button></div>
-        <h2 id="account-heading">Akun tetap<br />di Pojav.</h2>
+        <h2 id="account-heading">Akun game<br />dan profilmu.</h2>
         <div className="account-tabs" role="tablist">
           <button className={tab === 'offline' ? 'selected' : ''} onClick={() => setTab('offline')}>Offline</button>
           <button className={tab === 'microsoft' ? 'selected' : ''} onClick={() => setTab('microsoft')}>Microsoft</button>
           <button className={tab === 'elyby' ? 'selected' : ''} onClick={() => setTab('elyby')}>Ely.by</button>
         </div>
-        {tab === 'offline' && <div className="account-form"><p>Untuk bermain offline, pilih profil offline langsung di PojavLauncher. Noom tidak membuat atau menyimpan profil game.</p><div className="account-assurance"><ShieldCheck size={17} /> Nama profil tetap di Pojav</div><button className="modal-submit" onClick={() => onConnect('offline')}>BUKA POJAV <ArrowUpRight size={16} /></button></div>}
-        {tab === 'microsoft' && <div className="account-form"><p>Masuk di PojavLauncher dengan akun Microsoft yang memiliki Minecraft Java Edition.</p><div className="account-assurance"><ShieldCheck size={17} /> Login resmi ditangani Pojav</div><button className="modal-submit" onClick={() => onConnect('microsoft')}>BUKA POJAV <ArrowUpRight size={16} /></button></div>}
-        {tab === 'elyby' && <div className="account-form"><p>Dukungan Ely.by bergantung pada versi Pojav atau fork yang kamu gunakan. Atur server autentikasi dari aplikasi tersebut jika tersedia.</p><div className="account-assurance warning"><ShieldCheck size={17} /> Jangan masukkan password Ely.by di Noom</div><button className="modal-submit" onClick={() => onConnect('elyby')}>BUKA POJAV <ArrowUpRight size={16} /></button></div>}
+        {tab === 'offline' && <div className="account-form">
+          <p>Buat profil offline langsung di Noom. Nama disimpan hanya di perangkat ini; profil offline tidak memberi akses ke server yang mewajibkan akun premium.</p>
+          <form onSubmit={(event) => { event.preventDefault(); onCreateOffline(username); }}>
+            <label htmlFor="offline-username">NAMA PROFIL</label>
+            <input id="offline-username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Contoh: PemainBaru" maxLength={16} autoComplete="off" />
+            <button className="modal-submit" type="submit">BUAT PROFIL OFFLINE <Plus size={16} /></button>
+          </form>
+          {profiles.length > 0 && <div className="offline-profile-list"><span className="section-kicker">PROFIL TERSIMPAN</span>{profiles.map((profile) => <button key={profile.id} className={`offline-profile ${profile.id === activeProfile ? 'selected' : ''}`} onClick={() => onSelectProfile(profile.id)}><UserRound size={15} /><span>{profile.name}</span>{profile.id === activeProfile && <Check size={15} />}</button>)}</div>}
+          <div className="account-assurance"><ShieldCheck size={17} /> Profil offline tersimpan di aplikasi</div>
+          <p className="account-note">Noom versi beta belum menjalankan game sendiri. Untuk membuka Minecraft, Pojav tetap perlu dipasang dan profil offline yang sama dipilih di sana.</p>
+        </div>}
+        {tab === 'microsoft' && <div className="account-form"><p>Login Microsoft belum dapat dilakukan langsung di Noom. Autentikasi yang aman perlu alur OAuth resmi dan pemeriksaan kepemilikan Minecraft Java Edition.</p><div className="account-assurance"><ShieldCheck size={17} /> Akun harus memiliki Minecraft Java Edition</div><button className="modal-submit" onClick={() => onConnect('microsoft')}>LANJUTKAN DI POJAV <ArrowUpRight size={16} /></button></div>}
+        {tab === 'elyby' && <div className="account-form"><p>Gunakan email atau nama pengguna dan kata sandi yang sudah terdaftar di Ely.by hanya pada login resmi Ely.by. Login Ely.by langsung di Noom belum tersedia.</p><div className="account-assurance warning"><ShieldCheck size={17} /> Jangan masukkan kata sandi di Noom</div><button className="modal-submit" onClick={() => onConnect('elyby')}>LANJUTKAN DI POJAV <ArrowUpRight size={16} /></button></div>}
         {status && <div className="modal-status">{status}</div>}
-        <div className="modal-foot">Noom hanya membuka aplikasi Pojav yang sudah terpasang.</div>
+        <div className="modal-foot">Akun online tidak pernah disimpan oleh Noom.</div>
       </section>
     </div>
   );

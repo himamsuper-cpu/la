@@ -121,6 +121,8 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .search-field input::placeholder { color: #70756a; }
 kbd { border: 1px solid #3a4035; padding: 3px 5px; color: #969b8f; font: 9px var(--mono); }
 .filter-select { display: flex; align-items: center; gap: 9px; min-width: 148px; padding: 0 11px; border: 1px solid #34392f; background: #171a15; color: #b1b5a9; }
+.type-filter { min-width: 172px; }
+.version-filter { min-width: 130px; }
 .filter-select select { flex: 1; min-width: 0; appearance: none; border: 0; outline: 0; color: inherit; background: transparent; font-size: 10px; cursor: pointer; }
 .filter-select option { color: #151713; }
 .mod-list { min-height: 330px; }
@@ -176,6 +178,7 @@ kbd { border: 1px solid #3a4035; padding: 3px 5px; color: #969b8f; font: 9px var
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 20px; background: #080a08cc; backdrop-filter: blur(8px); animation: fade-in .16s both; }
 .account-modal { width: min(450px, 100%); padding: 27px 30px 21px; border: 1px solid #373d32; background: #171a15; box-shadow: 0 25px 90px #0008; }
+.account-modal { max-height: calc(100vh - 32px); overflow-y: auto; }
 .modal-top { display: flex; justify-content: space-between; align-items: center; }
 .account-modal h2 { margin: 18px 0 24px; font: 600 30px/1.08 var(--display); }
 .account-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: #10120f; }
@@ -186,6 +189,15 @@ kbd { border: 1px solid #3a4035; padding: 3px 5px; color: #969b8f; font: 9px var
 .account-form input { height: 42px; padding: 0 12px; border: 1px solid #41473a; background: #11130f; color: var(--text); font: 12px var(--mono); }
 .account-form > p { min-height: 47px; margin: 0 0 12px; color: #999e92; font-size: 10px; line-height: 1.65; }
 .account-form label + p { margin-top: 11px; }
+.account-form form { display: grid; gap: 9px; }
+.account-form form label { color: #aab0a1; font: 10px var(--mono); }
+.account-form form .modal-submit { margin-top: 4px; }
+.offline-profile-list { display: grid; gap: 6px; margin-top: 18px; }
+.offline-profile-list > .section-kicker { margin-bottom: 2px; }
+.offline-profile { min-height: 39px; display: flex; align-items: center; gap: 9px; padding: 0 10px; border: 1px solid #34392f; background: #11130f; color: #b8bcae; text-align: left; cursor: pointer; font-size: 10px; }
+.offline-profile > span { flex: 1; }
+.offline-profile.selected { border-color: #687b3b; color: var(--lime); }
+.account-form .account-note { min-height: 0; margin: 0; color: #777d70; font-size: 9px; }
 .account-assurance { display: flex; align-items: center; gap: 8px; margin: 12px 0 17px; color: #c2d995; font-size: 10px; }
 .account-assurance.warning { color: #e2a17e; }
 .modal-submit { width: 100%; height: 43px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: var(--lime); color: #171a12; font: 700 10px var(--mono); cursor: pointer; }
@@ -232,6 +244,10 @@ kbd { border: 1px solid #3a4035; padding: 3px 5px; color: #969b8f; font: 9px var
   .home-lower { grid-template-columns: 1fr; gap: 29px; padding-top: 27px; }
   .page-title-row h1 { font-size: 31px; }
   .mod-row { gap: 10px; }
+  .mod-toolbar { flex-wrap: wrap; }
+  .search-field { flex: 1 1 100%; }
+  .type-filter, .version-filter { flex: 1 1 130px; min-width: 0; }
+  kbd { display: none; }
   .mod-avatar { width: 39px; height: 39px; }
   .mod-meta { gap: 5px; font-size: 8px; }
   .install-button { padding: 8px; }
