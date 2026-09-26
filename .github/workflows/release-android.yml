@@ -60,5 +60,6 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           name: Noom Launcher ${{ inputs.release_tag || github.ref_name }}
+          prerelease: true
           generate_release_notes: true
           files: Noom-Launcher-${{ inputs.release_tag || github.ref_name }}-Android.apk
