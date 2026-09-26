@@ -85,7 +85,7 @@ await replaceOnce(
 await rebrandTextFiles(path.join(renderer, 'src'));
 await rebrandTextFiles(path.join(renderer, 'locales'));
 
-const noomIcon = path.join(noomRoot, 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png');
+const noomIcon = path.join(noomRoot, 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png');
 const rendererAssets = path.join(renderer, 'src/assets');
 const electronIcons = path.join(electronApp, 'icons');
 await mkdir(rendererAssets, { recursive: true });
@@ -98,8 +98,8 @@ const height = png.readUInt32BE(20);
 const header = Buffer.alloc(22);
 header.writeUInt16LE(1, 2);
 header.writeUInt16LE(1, 4);
-header.writeUInt8(width === 256 ? 0 : width, 6);
-header.writeUInt8(height === 256 ? 0 : height, 7);
+header.writeUInt8(width >= 256 ? 0 : width, 6);
+header.writeUInt8(height >= 256 ? 0 : height, 7);
 header.writeUInt16LE(1, 10);
 header.writeUInt16LE(32, 12);
 header.writeUInt32LE(png.length, 14);
