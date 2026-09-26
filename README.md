@@ -28,6 +28,6 @@ The Windows build uses a pinned XMCL desktop runtime and is released separately 
 The beta APK is debug-signed for direct testing/sideloading, not Google Play distribution. Pushing a `v*` tag starts a release build; the same workflow can also be run manually from GitHub Actions with an existing tag.
 
 ```sh
-git tag v1.5.0-beta
-git push origin v1.5.0-beta
+git tag v1.5.0-beta.1
+git push origin v1.5.0-beta.1
 ```
