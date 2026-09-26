@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Noom Launcher</string>
+    <string name="title_activity_main">Noom Launcher</string>
+    <string name="package_name">id.noom.launcher</string>
+    <string name="custom_url_scheme">id.noom.launcher</string>
+</resources>
