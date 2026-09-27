@@ -1,4 +1,4 @@
-name: Windows Beta Release
+name: Windows Release
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
         description: Windows release tag
         required: true
         type: string
-        default: windows-v1.1.9
+        default: windows-v2.0.0
   push:
     tags:
       - 'windows-v*'
@@ -19,7 +19,7 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - name: Check out Noom
+      - name: Check out Moon Launcher
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -31,6 +31,14 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.10.0
+
+      - name: Resolve release version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          $version = $env:RELEASE_TAG -replace '^windows-v', ''
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Check out pinned XMCL runtime
         shell: pwsh
@@ -46,8 +54,10 @@ jobs:
           Set-Location $env:XMCL_SOURCE
           pnpm install --frozen-lockfile
 
-      - name: Apply Noom branding and license notices
-        run: node windows/rebrand-xmcl.mjs "$env:XMCL_SOURCE"
+      - name: Apply Moon branding and license notices
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: node windows/rebrand-xmcl.mjs "$env:XMCL_SOURCE" "$env:RELEASE_TAG"
 
       - name: Build Windows installer
         shell: pwsh
@@ -60,20 +70,20 @@ jobs:
           New-Item -ItemType Directory -Force $destination | Out-Null
           Copy-Item 'xmcl-electron-app/build/output/*.exe' $destination
           Copy-Item 'xmcl-electron-app/build/output/*.blockmap' $destination -ErrorAction SilentlyContinue
-          Copy-Item 'xmcl-electron-app/build/Noom-Third-Party-Notices.txt' $destination
+          Copy-Item 'xmcl-electron-app/build/Moon-Third-Party-Notices.txt' $destination
 
-      - name: Upload beta build artifact
+      - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Noom-Launcher-Windows-${{ inputs.release_tag || github.ref_name }}
+          name: MoonLauncher-v${{ env.RELEASE_VERSION }}-Windows
           path: windows/dist/*
 
-      - name: Publish Windows beta release
+      - name: Publish Windows release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          name: Noom Launcher ${{ inputs.release_tag || github.ref_name }}
-          prerelease: true
+          name: Moon Launcher v${{ env.RELEASE_VERSION }}
+          prerelease: false
           generate_release_notes: true
           files: windows/dist/*
