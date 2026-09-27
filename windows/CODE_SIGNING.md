@@ -1,6 +1,6 @@
 # Windows Code Signing
 
-The Windows release workflow requires a trusted code-signing certificate. Without it, SmartScreen can label Moon Launcher as an unrecognized app.
+The Windows release workflow requires a trusted code-signing certificate. Without it, SmartScreen can label Moon Launcher as an unrecognized app. The workflow signs and verifies both the 32-bit `ia32` and 64-bit `x64` installers before publishing either one.
 
 The certificate must be issued by a trusted certificate authority, include the Code Signing usage and private key, and be exported as a password-protected PFX. A self-signed certificate will not establish publisher trust for users.
 

@@ -98,14 +98,18 @@ jobs:
               Select-Object -First 1
             if (-not $signTool) { throw 'Windows SDK signtool.exe was not found.' }
 
-            $installers = @(Get-ChildItem -Path 'windows/dist' -Filter '*.exe')
-            if ($installers.Count -ne 1) { throw "Expected one installer, found $($installers.Count)." }
+            $installers = @(Get-ChildItem -Path 'windows/dist' -Filter '*.exe' | Sort-Object Name)
+            if ($installers.Count -ne 2) { throw "Expected ia32 and x64 installers, found $($installers.Count)." }
+            foreach ($architecture in @('ia32', 'x64')) {
+              $installer = $installers | Where-Object { $_.Name -match "-$architecture\.exe$" }
+              if (-not $installer) { throw "Missing $architecture installer." }
 
-            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr 'http://timestamp.digicert.com' /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /d 'Moon Launcher' $installers[0].FullName
-            if ($LASTEXITCODE -ne 0) { throw 'Authenticode signing failed.' }
+              & $signTool.FullName sign /fd SHA256 /td SHA256 /tr 'http://timestamp.digicert.com' /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /d "Moon Launcher $architecture" $installer.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $architecture." }
 
-            & $signTool.FullName verify /pa /all /v $installers[0].FullName
-            if ($LASTEXITCODE -ne 0) { throw 'Authenticode verification failed; release was stopped.' }
+              & $signTool.FullName verify /pa /all /v $installer.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Authenticode verification failed for $architecture; release was stopped." }
+            }
           } finally {
             Remove-Item $certificatePath -Force -ErrorAction SilentlyContinue
           }

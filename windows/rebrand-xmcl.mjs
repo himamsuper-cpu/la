@@ -48,7 +48,7 @@ await replaceOnce(builderConfig, `publish: [{
     owner: 'voxelum',
     repo: 'x-minecraft-launcher',
   }],`, 'publish: [],');
-await replaceOnce(builderConfig, "artifactName: 'xmcl-${version}-${platform}-${arch}.${ext}',", "artifactName: 'MoonLauncher-v${version}.${ext}',");
+await replaceOnce(builderConfig, "artifactName: 'xmcl-${version}-${platform}-${arch}.${ext}',", "artifactName: 'MoonLauncher-v${version}-${arch}.${ext}',");
 await replaceOnce(builderConfig, "icon: 'icons/dark.ico',", "icon: 'icons/moon.ico',");
 await replaceOnce(builderConfig, `  extraResources: [{
     from: 'main/agent-documents',
@@ -73,7 +73,7 @@ await replaceOnce(builderConfig, `target: [
       'appx',
     ],`, `target: [{
       target: 'nsis',
-      arch: ['x64'],
+      arch: ['ia32', 'x64'],
     }],`);
 
 const appPackagePath = path.join(electronApp, 'package.json');
