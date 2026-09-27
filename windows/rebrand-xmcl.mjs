@@ -6,7 +6,7 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.0.1';
+const releaseTag = process.argv[3] || 'windows-v2.0.2';
 const appVersion = releaseTag.replace(/^windows-v/, '');
 if (!/^\d+\.\d+\.\d+$/.test(appVersion)) throw new Error(`Windows releases require a stable version tag: ${releaseTag}`);
 
@@ -87,6 +87,7 @@ await replaceOnce(
   '<title>Moon Launcher</title>',
 );
 const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
+const homeView = path.join(renderer, 'src/views/Home.vue');
 await replaceOnce(
   loginForm,
   `    <UserLoginAuthoritySelect
@@ -132,8 +133,105 @@ await replaceOnce(
   'const { login, abortLogin, on } = useService(UserServiceKey)',
   'const { login, abortLogin, on, addYggdrasilService } = useService(UserServiceKey)',
 );
+await replaceOnce(
+  homeView,
+  '          <HomeGrid />',
+  `          <section class="moon-quick-access mx-3 mb-8 grid gap-5" data-testid="moon-quick-access">
+            <div>
+              <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold opacity-70">
+                <v-icon size="18">explore</v-icon>
+                {{ t('store.discover') }}
+              </h2>
+              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                <v-btn
+                  v-for="action in downloadActions"
+                  :key="action.id"
+                  :data-testid="\`moon-download-\${action.id}\`"
+                  :to="action.to"
+                  block
+                  variant="tonal"
+                  color="primary"
+                  class="min-h-12 justify-start text-left"
+                >
+                  <v-icon start>{{ action.icon }}</v-icon>
+                  {{ action.label }}
+                </v-btn>
+              </div>
+            </div>
+            <div>
+              <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold opacity-70">
+                <v-icon size="18">tune</v-icon>
+                {{ t('shared.manage') }}
+              </h2>
+              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                <v-btn
+                  v-for="action in manageActions"
+                  :key="action.id"
+                  :data-testid="\`moon-manage-\${action.id}\`"
+                  :to="action.to"
+                  block
+                  variant="outlined"
+                  class="min-h-12 justify-start text-left"
+                >
+                  <v-icon start>{{ action.icon }}</v-icon>
+                  {{ action.label }}
+                </v-btn>
+                <v-btn
+                  data-testid="moon-import-modpack"
+                  block
+                  variant="outlined"
+                  class="min-h-12 justify-start text-left"
+                  :loading="importingModpack"
+                  @click="importModpack"
+                >
+                  <v-icon start>drive_folder_upload</v-icon>
+                  {{ t('instance.installModpack') }}
+                </v-btn>
+              </div>
+            </div>
+          </section>
+          <HomeGrid />`,
+);
 await rebrandTextFiles(path.join(renderer, 'src'));
 await rebrandTextFiles(path.join(renderer, 'locales'));
+await replaceOnce(
+  homeView,
+  `const { show } = useDialog('HomeDropModpackDialog')`,
+  `const { show } = useDialog('HomeDropModpackDialog')
+
+const downloadActions = computed(() => [
+  { id: 'mods', label: t('modrinth.projectType.mod'), icon: 'extension', to: { path: '/mods', query: { source: 'remote' } } },
+  { id: 'modpacks', label: t('modrinth.projectType.modpack'), icon: 'inventory_2', to: '/store' },
+  { id: 'resourcepacks', label: t('modrinth.projectType.resourcepack'), icon: 'palette', to: { path: '/resourcepacks', query: { source: 'remote' } } },
+  { id: 'shaders', label: t('modrinth.projectType.shader'), icon: 'flare', to: { path: '/shaderpacks', query: { source: 'remote' } } },
+  { id: 'datapacks', label: t('modrinth.projectType.datapack'), icon: 'data_object', to: { path: '/save', query: { source: 'remote', modLoaders: 'datapack' } } },
+])
+
+const manageActions = computed(() => [
+  { id: 'mods', label: t('shared.manage') + ' ' + t('modrinth.projectType.mod'), icon: 'folder_open', to: { path: '/mods', query: { source: 'local' } } },
+  { id: 'resourcepacks', label: t('shared.manage') + ' ' + t('modrinth.projectType.resourcepack'), icon: 'palette', to: { path: '/resourcepacks', query: { source: 'local' } } },
+  { id: 'shaders', label: t('shared.manage') + ' ' + t('modrinth.projectType.shader'), icon: 'tune', to: { path: '/shaderpacks', query: { source: 'local' } } },
+  { id: 'worlds', label: t('shared.manage') + ' ' + t('save.name', 2), icon: 'public', to: { path: '/save', query: { source: 'local' } } },
+])
+
+const importingModpack = ref(false)
+async function importModpack() {
+  if (importingModpack.value) return
+  importingModpack.value = true
+  try {
+    const result = await windowController.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Modpack', extensions: ['mrpack', 'zip'] }],
+    })
+    const file = result.canceled ? undefined : result.filePaths[0]
+    if (file) show(file)
+  } catch (error) {
+    console.error('Failed to select a modpack file', error)
+  } finally {
+    importingModpack.value = false
+  }
+}`,
+);
 await replaceOnce(
   loginForm,
   `watch(authority, () => {
