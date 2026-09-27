@@ -6,7 +6,7 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.0.0';
+const releaseTag = process.argv[3] || 'windows-v2.0.1';
 const appVersion = releaseTag.replace(/^windows-v/, '');
 if (!/^\d+\.\d+\.\d+$/.test(appVersion)) throw new Error(`Windows releases require a stable version tag: ${releaseTag}`);
 
@@ -86,8 +86,102 @@ await replaceOnce(
   '<title>X Minecraft Launcher</title>',
   '<title>Moon Launcher</title>',
 );
+const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
+await replaceOnce(
+  loginForm,
+  `    <UserLoginAuthoritySelect
+      v-model="authority"`,
+  `    <div class="mb-4 grid grid-cols-3 gap-2" data-testid="quick-login-providers">
+      <v-btn
+        data-testid="quick-login-microsoft"
+        :variant="authority === AUTHORITY_MICROSOFT ? 'flat' : 'tonal'"
+        :color="authority === AUTHORITY_MICROSOFT ? 'primary' : undefined"
+        @click="chooseQuickAuthority(AUTHORITY_MICROSOFT)"
+      >
+        <v-icon start size="17">xmcl:microsoft</v-icon>
+        Microsoft
+      </v-btn>
+      <v-btn
+        data-testid="quick-login-offline"
+        :variant="authority === AUTHORITY_DEV ? 'flat' : 'tonal'"
+        :color="authority === AUTHORITY_DEV ? 'primary' : undefined"
+        @click="chooseQuickAuthority(AUTHORITY_DEV)"
+      >
+        <v-icon start size="17">person</v-icon>
+        {{ t('userServices.offline.name') }}
+      </v-btn>
+      <v-btn
+        data-testid="quick-login-elyby"
+        :variant="authority.includes('ely.by') ? 'flat' : 'tonal'"
+        :color="authority.includes('ely.by') ? 'primary' : undefined"
+        :loading="isAddingElyBy"
+        @click="chooseElyBy"
+      >
+        <v-icon start size="17">public</v-icon>
+        Ely.by
+      </v-btn>
+    </div>
+    <v-alert v-if="quickAuthError" type="warning" density="compact" variant="tonal" class="mb-3">
+      {{ quickAuthError }}
+    </v-alert>
+    <UserLoginAuthoritySelect
+      v-model="authority"`,
+);
+await replaceOnce(
+  loginForm,
+  'const { login, abortLogin, on } = useService(UserServiceKey)',
+  'const { login, abortLogin, on, addYggdrasilService } = useService(UserServiceKey)',
+);
 await rebrandTextFiles(path.join(renderer, 'src'));
 await rebrandTextFiles(path.join(renderer, 'locales'));
+await replaceOnce(
+  loginForm,
+  `watch(authority, () => {
+  emit('seed')
+})`,
+  `watch(authority, () => {
+  emit('seed')
+})
+
+const ELY_BY_AUTHORITY = 'https://authserver.ely.by/api/yggdrasil'
+const isAddingElyBy = ref(false)
+const quickAuthError = ref('')
+
+function chooseQuickAuthority(value: string) {
+  authority.value = value
+  data.username = ''
+  data.password = ''
+  data.uuid = ''
+  quickAuthError.value = ''
+  error.value = undefined
+  nextTick(() => accountInput.value?.focus())
+}
+
+async function chooseElyBy() {
+  quickAuthError.value = ''
+  const existingElyBy = items.value.find((item) => {
+    try {
+      return new URL(item.value).hostname === 'authserver.ely.by'
+    } catch {
+      return false
+    }
+  })
+  if (existingElyBy) {
+    chooseQuickAuthority(existingElyBy.value)
+    return
+  }
+
+  isAddingElyBy.value = true
+  try {
+    await addYggdrasilService(ELY_BY_AUTHORITY)
+    chooseQuickAuthority(ELY_BY_AUTHORITY)
+  } catch {
+    quickAuthError.value = t('loginError.badNetworkOrServer')
+  } finally {
+    isAddingElyBy.value = false
+  }
+}`,
+);
 
 const rendererAssets = path.join(renderer, 'src/assets');
 const electronIcons = path.join(electronApp, 'icons');
