@@ -17,4 +17,4 @@ On Windows PowerShell, encode the PFX locally with:
 
 Paste the clipboard contents directly into the GitHub secret field. Do not commit the PFX or send the PFX, password, or Base64 value in chat. GitHub Actions signs the installer with SHA-256, timestamps it, verifies the signature, and only then uploads it. If signing or verification fails, no release is published.
 
-After both secrets are configured, create the stable `windows-v2.0.2` release. A newly issued certificate may still need to build SmartScreen reputation, but Windows should show its verified publisher instead of “Unknown publisher.”
+After both secrets are configured, create the stable `windows-v2.1.0` release. A newly issued certificate may still need to build SmartScreen reputation, but Windows should show its verified publisher instead of “Unknown publisher.”

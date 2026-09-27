@@ -7,7 +7,7 @@ on:
         description: Windows release tag
         required: true
         type: string
-        default: windows-v2.0.2
+        default: windows-v2.1.0
   push:
     tags:
       - 'windows-v*'

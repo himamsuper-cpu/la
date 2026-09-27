@@ -6,7 +6,7 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.0.2';
+const releaseTag = process.argv[3] || 'windows-v2.1.0';
 const appVersion = releaseTag.replace(/^windows-v/, '');
 if (!/^\d+\.\d+\.\d+$/.test(appVersion)) throw new Error(`Windows releases require a stable version tag: ${releaseTag}`);
 
@@ -88,6 +88,12 @@ await replaceOnce(
 );
 const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
 const homeView = path.join(renderer, 'src/views/Home.vue');
+const sidebarView = path.join(renderer, 'src/views/AppSideBarClassic.vue');
+await replaceOnce(
+  homeView,
+  "import HomeCriticalError from './HomeCriticalError.vue'",
+  "import moonLogo from '@/assets/moon-logo.png'\nimport moonHero from '@/assets/moon-hero.webp'\nimport HomeCriticalError from './HomeCriticalError.vue'",
+);
 await replaceOnce(
   loginForm,
   `    <UserLoginAuthoritySelect
@@ -136,13 +142,37 @@ await replaceOnce(
 await replaceOnce(
   homeView,
   '          <HomeGrid />',
-  `          <section class="moon-quick-access mx-3 mb-8 grid gap-5" data-testid="moon-quick-access">
-            <div>
-              <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold opacity-70">
+  `          <section class="moon-hero mx-3 mb-6" data-testid="moon-hero">
+            <img class="moon-hero__art" :src="moonHero" alt="" />
+            <div class="moon-hero__content">
+              <div class="moon-hero__brandline">
+                <img class="moon-hero__logo" :src="moonLogo" alt="" />
+                <div>
+                  <div class="moon-hero__wordmark">MOON LAUNCHER</div>
+                  <div class="moon-hero__caption">MINECRAFT JAVA EDITION</div>
+                </div>
+              </div>
+              <h1>{{ instance.name || ('Minecraft ' + instance.runtime.minecraft) }}</h1>
+              <div class="moon-hero__status">
+                <span class="moon-hero__status-dot" />
+                <span>{{ instance.runtime.minecraft || 'Minecraft Java' }}</span>
+                <span class="moon-hero__separator">/</span>
+                <span>{{ t('instance.name', 1) }}</span>
+              </div>
+              <v-btn data-testid="moon-play" color="primary" size="large" variant="flat" class="moon-hero__play mt-5" @click="onLaunchClick()">
+                <v-icon start>play_arrow</v-icon>
+                {{ launchText }}
+              </v-btn>
+            </div>
+          </section>
+          <section class="moon-quick-access mx-3 mb-8 grid gap-4" data-testid="moon-quick-access">
+            <div class="moon-quick-access__group">
+              <h2 class="moon-quick-access__heading">
+                <span class="moon-quick-access__index">01</span>
                 <v-icon size="18">explore</v-icon>
                 {{ t('store.discover') }}
               </h2>
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+              <div class="moon-quick-access__grid">
                 <v-btn
                   v-for="action in downloadActions"
                   :key="action.id"
@@ -151,19 +181,20 @@ await replaceOnce(
                   block
                   variant="tonal"
                   color="primary"
-                  class="min-h-12 justify-start text-left"
+                  class="moon-action-button min-h-12 justify-start text-left"
                 >
                   <v-icon start>{{ action.icon }}</v-icon>
                   {{ action.label }}
                 </v-btn>
               </div>
             </div>
-            <div>
-              <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold opacity-70">
+            <div class="moon-quick-access__group">
+              <h2 class="moon-quick-access__heading">
+                <span class="moon-quick-access__index">02</span>
                 <v-icon size="18">tune</v-icon>
                 {{ t('shared.manage') }}
               </h2>
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+              <div class="moon-quick-access__grid">
                 <v-btn
                   v-for="action in manageActions"
                   :key="action.id"
@@ -171,7 +202,7 @@ await replaceOnce(
                   :to="action.to"
                   block
                   variant="outlined"
-                  class="min-h-12 justify-start text-left"
+                  class="moon-action-button min-h-12 justify-start text-left"
                 >
                   <v-icon start>{{ action.icon }}</v-icon>
                   {{ action.label }}
@@ -180,7 +211,7 @@ await replaceOnce(
                   data-testid="moon-import-modpack"
                   block
                   variant="outlined"
-                  class="min-h-12 justify-start text-left"
+                  class="moon-action-button min-h-12 justify-start text-left"
                   :loading="importingModpack"
                   @click="importModpack"
                 >
@@ -195,6 +226,64 @@ await replaceOnce(
 await rebrandTextFiles(path.join(renderer, 'src'));
 await rebrandTextFiles(path.join(renderer, 'locales'));
 await replaceOnce(
+  sidebarView,
+  `    <div
+      ref="instancesScrollEl"`,
+  `    <div v-roving-tabindex role="group" class="sidebar__section sidebar__quick-links">
+      <AppSideBarItem
+        v-for="action in marketShortcuts"
+        :key="action.id"
+        :data-testid="\`nav-content-\${action.id}\`"
+        v-shared-tooltip.right="() => action.label"
+        :to="action.to"
+        :aria-label="action.label"
+      >
+        <v-icon class="sidebar-item__icon" :size="22">{{ action.icon }}</v-icon>
+      </AppSideBarItem>
+    </div>
+
+    <div class="sidebar__divider" />
+
+    <div
+      ref="instancesScrollEl"`,
+);
+await replaceOnce(
+  sidebarView,
+  `      <v-divider vertical class="mx-2 h-6" />
+    </div>
+
+    <div class="flex-grow-1 overflow-hidden h-full flex items-center relative"`,
+  `      <v-menu location="bottom start">
+        <template #activator="{ props: marketMenuProps }">
+          <v-btn
+            v-bind="marketMenuProps"
+            data-testid="nav-content-menu"
+            v-shared-tooltip.bottom="t('store.discover')"
+            icon
+            :aria-label="t('store.discover')"
+            class="non-moveable mr-1"
+          >
+            <v-icon>apps</v-icon>
+          </v-btn>
+        </template>
+        <v-list density="compact" min-width="230">
+          <v-list-item
+            v-for="action in marketShortcuts"
+            :key="action.id"
+            :data-testid="\`nav-content-\${action.id}\`"
+            :to="action.to"
+            :title="action.label"
+          >
+            <template #prepend><v-icon>{{ action.icon }}</v-icon></template>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+      <v-divider vertical class="mx-2 h-6" />
+    </div>
+
+    <div class="flex-grow-1 overflow-hidden h-full flex items-center relative"`,
+);
+await replaceOnce(
   homeView,
   `const { show } = useDialog('HomeDropModpackDialog')`,
   `const { show } = useDialog('HomeDropModpackDialog')
@@ -204,7 +293,7 @@ const downloadActions = computed(() => [
   { id: 'modpacks', label: t('modrinth.projectType.modpack'), icon: 'inventory_2', to: '/store' },
   { id: 'resourcepacks', label: t('modrinth.projectType.resourcepack'), icon: 'palette', to: { path: '/resourcepacks', query: { source: 'remote' } } },
   { id: 'shaders', label: t('modrinth.projectType.shader'), icon: 'flare', to: { path: '/shaderpacks', query: { source: 'remote' } } },
-  { id: 'datapacks', label: t('modrinth.projectType.datapack'), icon: 'data_object', to: { path: '/save', query: { source: 'remote', modLoaders: 'datapack' } } },
+  { id: 'datapacks', label: t('modrinth.projectType.datapack'), icon: 'data_object', to: { path: '/save', query: { source: 'remote', modrinthCategories: 'datapack' } } },
 ])
 
 const manageActions = computed(() => [
@@ -231,6 +320,185 @@ async function importModpack() {
     importingModpack.value = false
   }
 }`,
+);
+await replaceOnce(
+  sidebarView,
+  `const settingsAriaLabel = computed(() => t('setting.name', 2))`,
+  `const settingsAriaLabel = computed(() => t('setting.name', 2))
+const marketShortcuts = computed(() => [
+  { id: 'mods', label: t('modrinth.projectType.mod'), icon: 'extension', to: { path: '/mods', query: { source: 'remote' } } },
+  { id: 'modpacks', label: t('modrinth.projectType.modpack'), icon: 'inventory_2', to: '/store' },
+  { id: 'resourcepacks', label: t('modrinth.projectType.resourcepack'), icon: 'palette', to: { path: '/resourcepacks', query: { source: 'remote' } } },
+  { id: 'shaders', label: t('modrinth.projectType.shader'), icon: 'flare', to: { path: '/shaderpacks', query: { source: 'remote' } } },
+  { id: 'datapacks', label: t('modrinth.projectType.datapack'), icon: 'data_object', to: { path: '/save', query: { source: 'remote', modrinthCategories: 'datapack' } } },
+])`,
+);
+await replaceOnce(
+  homeView,
+  '</script>',
+  `</script>
+<style>
+.moon-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 270px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 16px;
+  background: #17231d;
+}
+
+.moon-hero__art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 44%;
+  filter: saturate(0.84);
+}
+
+.moon-hero::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: '';
+  background: linear-gradient(90deg, rgba(13, 20, 16, 0.96) 0%, rgba(13, 20, 16, 0.82) 45%, rgba(13, 20, 16, 0.18) 100%);
+}
+
+.moon-hero__content {
+  display: flex;
+  width: min(680px, 76%);
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 30px 36px;
+  color: #f3f4ec;
+}
+
+.moon-hero__brandline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.moon-hero__logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.moon-hero__wordmark {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.moon-hero__caption {
+  color: rgba(243, 244, 236, 0.66);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.moon-hero h1 {
+  margin: 22px 0 8px;
+  color: #f3f4ec;
+  font-size: 36px;
+  font-weight: 750;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.moon-hero__status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: rgba(243, 244, 236, 0.72);
+  font-size: 12px;
+}
+
+.moon-hero__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c5ee58;
+  box-shadow: 0 0 10px rgba(197, 238, 88, 0.6);
+}
+
+.moon-hero__separator {
+  opacity: 0.5;
+}
+
+.moon-hero__play {
+  min-width: 168px;
+  min-height: 48px;
+  font-weight: 750;
+}
+
+.moon-quick-access {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.moon-quick-access__group {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.09);
+  border-radius: 12px;
+  background: rgba(var(--v-theme-surface), 0.72);
+}
+
+.moon-quick-access__heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 13px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.moon-quick-access__index {
+  color: rgb(var(--v-theme-primary));
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.moon-quick-access__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.moon-action-button {
+  justify-content: flex-start;
+  min-width: 0;
+  padding-inline: 12px;
+  text-align: left;
+}
+
+@media (max-width: 1000px) {
+  .moon-quick-access {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .moon-hero {
+    min-height: 250px;
+  }
+
+  .moon-hero__content {
+    width: 100%;
+    padding: 24px;
+  }
+
+  .moon-hero h1 {
+    font-size: 28px;
+  }
+}
+</style>`,
 );
 await replaceOnce(
   loginForm,
@@ -287,6 +555,7 @@ await mkdir(rendererAssets, { recursive: true });
 await mkdir(electronIcons, { recursive: true });
 await generateMoonAssets(electronIcons);
 await copyFile(path.join(electronIcons, 'moon-logo.png'), path.join(rendererAssets, 'moon-logo.png'));
+await copyFile(path.join(renderer, 'src/assets/banners/1.20.webp'), path.join(rendererAssets, 'moon-hero.webp'));
 
 const upstreamLicense = await readFile(path.join(xmclRoot, 'LICENSE'), 'utf8');
 const notices = await readFile(path.join(projectRoot, 'windows/THIRD_PARTY_NOTICES.md'), 'utf8');

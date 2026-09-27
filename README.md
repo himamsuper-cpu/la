@@ -1,8 +1,10 @@
-# Noom Launcher
+# Moon Launcher
 
-Noom is an Android companion app for Minecraft Java players. It searches Modrinth for mods, modpacks, resource packs, shaders, data packs, and worlds. Compatible Fabric, Forge, and NeoForge mods can be installed into a user-selected folder; the matching loader must already be installed in Pojav. Other content is downloaded to a location chosen with Android's save-file dialog. Modpack `.mrpack` files must be imported into a compatible launcher, and downloaded archives may need to be moved or imported into the matching Minecraft folder.
+Moon Launcher has separate native runtimes for Windows and Android. The Windows release is built from pinned XMCL source; the Android beta APK bundles a standalone Minecraft Java runtime built from pinned Amethyst source. The React/Vite app in this repository is a legacy web shell, not the runtime used by either native release.
 
-Noom does not include Minecraft, a Java runtime, or an account service. Sign-in and game launching happen in Pojav. Offline and Microsoft account support depends on the installed Pojav build; Ely.by is available only if that build supports its authentication provider.
+The Android APK does not require Zalith or Pojav to be installed. It includes version selection, Microsoft and offline account flows, touch controls, and a game runtime. Its upstream runtime can import `.mrpack` files. Ely.by login is not supported in the pinned Android runtime.
+
+The Windows XMCL runtime includes Modrinth/CurseForge catalog and modpack workflows. The web shell in this repository is not the Windows UI and does not launch Minecraft.
 
 ## Run
 
@@ -11,23 +13,31 @@ npm ci
 npm run dev
 ```
 
-For an Android debug APK, install JDK 21 and Android SDK Platform 36, then run:
+Android standalone beta APKs are built by the `Android Standalone Launcher Release` GitHub Actions workflow. It installs its own Android SDK, JDK 21, native build dependencies, and game Java runtime.
+
+The legacy Capacitor web shell can still be built locally with:
 
 ```sh
 npm run android:apk
 ```
 
-Install PojavLauncher or Zalith Launcher separately. In Noom, open Settings and select the active `mods` folder through Android's folder picker. Choose the Minecraft version and mod loader in the content catalog; install that game version and loader in Pojav separately. Noom does not change the version selected inside Pojav.
+The repository does not yet contain hosted chat, voice rooms, group invites, a premium-key store, or a public website. Those features need an online backend; real-time voice also needs WebRTC signaling and a TURN service. Microsoft login needs a registered OAuth application, and payments need a payment provider and server-side entitlement checks.
 
-## Windows Beta
+Cloudflare Tunnel exposes a service running elsewhere; it does not host the website or guarantee faster rendering/downloads. Cloudflare Pages/Workers and object storage can host those parts, but actual speed depends on the origin, network, region, and assets. Minecraft FPS likewise depends on the device and game settings; the launcher cannot guarantee 500–1000 FPS.
 
-The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Run the `Windows Beta Release` workflow or push a `windows-v*` tag to produce the Noom Launcher 1.1.9 x64 installer. The upstream MIT notice is included with the release.
+## Windows Release
+
+The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Moon Launcher v2.1.0 adds a branded home dashboard, a real launch button, direct shortcuts for mods, modpacks, resource packs, shaders, data packs, installed content, and `.mrpack` import, plus category icons in the sidebar. Login offers Microsoft, offline, and Ely.by choices.
+
+Windows release builds require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md); the workflow refuses to publish unsigned installers. After configuring those secrets, run the `Windows Release` workflow or push the stable `windows-v2.1.0` tag to produce `MoonLauncher-v2.1.0.exe`. Windows tags must not include a beta suffix. The upstream MIT notice is included with the release.
 
 ## GitHub Release
 
-The beta APK is debug-signed for direct testing/sideloading, not Google Play distribution. Pushing a `v*` tag starts a release build; the same workflow can also be run manually from GitHub Actions with an existing tag.
+The beta APK is debug-signed for direct testing/sideloading, not Google Play distribution. Debug signing is not a stable update key across fresh CI runners, so APKs may require uninstalling the prior test build before installing a new one. Pushing a `v*` tag starts an Android release build; the workflow can also be run manually with a release tag.
 
 ```sh
-git tag v1.5.0-beta.1
-git push origin v1.5.0-beta.1
+git tag v1.5.0-beta.3
+git push origin v1.5.0-beta.3
 ```
+
+Windows uses stable `windows-v2.1.0` tags and publishes separately.
