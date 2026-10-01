@@ -6,7 +6,7 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.3';
+const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.4';
 const appVersion = releaseTag.replace(/^windows-v/, '');
 if (!/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(appVersion)) throw new Error(`Invalid Windows release tag: ${releaseTag}`);
 
@@ -93,6 +93,11 @@ await replaceOnce(
   path.join(renderer, 'src/index.html'),
   '<title>X Minecraft Launcher</title>',
   '<title>Moon Launcher</title>',
+);
+await replaceOnce(
+  path.join(renderer, 'src/index.html'),
+  '<title>Moon Launcher</title>',
+  '<title>Moon Launcher</title>\n    <link rel="icon" type="image/png" href="./assets/moon-logo.png">',
 );
 const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
 const homeView = path.join(renderer, 'src/views/Home.vue');
@@ -243,6 +248,72 @@ await replaceOnce(
 );
 await rebrandTextFiles(path.join(renderer, 'src'));
 await rebrandTextFiles(path.join(renderer, 'locales'));
+await replaceOnce(
+  sidebarView,
+  "import PlayerAvatar from '@/components/PlayerAvatar.vue'",
+  "import moonLogo from '@/assets/moon-logo.png'\nimport PlayerAvatar from '@/components/PlayerAvatar.vue'",
+);
+await replaceOnce(
+  sidebarView,
+  `    <div v-roving-tabindex role="group" class="sidebar__section">
+      <button
+        v-shared-tooltip.right="() => t('shared.back')"`,
+  `    <div class="moon-sidebar-brand" aria-label="Moon Launcher">
+      <img :src="moonLogo" alt="" />
+      <span>MOON</span>
+    </div>
+    <div v-roving-tabindex role="group" class="sidebar__section">
+      <button
+        v-shared-tooltip.right="() => t('shared.back')"`,
+);
+await replaceOnce(
+  sidebarView,
+  `    <div v-roving-tabindex role="group" class="flex flex-row items-center flex-grow-0">
+      <v-btn
+        v-shared-tooltip.bottom="t('shared.back')"`,
+  `    <div v-roving-tabindex role="group" class="flex flex-row items-center flex-grow-0">
+      <div class="moon-sidebar-brand moon-sidebar-brand--horizontal" aria-label="Moon Launcher">
+        <img :src="moonLogo" alt="" />
+        <span>MOON</span>
+      </div>
+      <v-btn
+        v-shared-tooltip.bottom="t('shared.back')"`,
+);
+await replaceOnce(
+  sidebarView,
+  '</style>',
+  `.moon-sidebar-brand {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 3px auto 10px;
+  color: rgba(var(--v-theme-on-surface), 0.82);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.moon-sidebar-brand img {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 9px;
+}
+
+.moon-sidebar-brand--horizontal {
+  flex-direction: row;
+  gap: 7px;
+  margin: 0 8px 0 2px;
+  font-size: 10px;
+}
+
+.moon-sidebar-brand--horizontal img {
+  width: 28px;
+  height: 28px;
+}
+</style>`,
+);
 await replaceOnce(
   sidebarView,
   `    <div
