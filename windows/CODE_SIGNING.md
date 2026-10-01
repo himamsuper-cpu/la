@@ -1,6 +1,6 @@
 # Windows Code Signing
 
-The Windows release workflow requires a trusted code-signing certificate. Without it, SmartScreen can label Moon Launcher as an unrecognized app. The workflow signs and verifies both the 32-bit `ia32` and 64-bit `x64` installers before publishing either one.
+Stable Windows releases require a trusted code-signing certificate. Without it, SmartScreen can label Moon Launcher as an unrecognized app. Stable releases sign and verify the 64-bit `x64` installer before publishing it. Beta releases intentionally skip signing so testers can download builds before the signing secrets are configured; Windows may still show an unrecognized-app warning for those beta files.
 
 The certificate must be issued by a trusted certificate authority, include the Code Signing usage and private key, and be exported as a password-protected PFX. A self-signed certificate will not establish publisher trust for users.
 
@@ -17,4 +17,4 @@ On Windows PowerShell, encode the PFX locally with:
 
 Paste the clipboard contents directly into the GitHub secret field. Do not commit the PFX or send the PFX, password, or Base64 value in chat. GitHub Actions signs the installer with SHA-256, timestamps it, verifies the signature, and only then uploads it. If signing or verification fails, no release is published.
 
-After both secrets are configured, create the stable `windows-v2.1.0` release. A newly issued certificate may still need to build SmartScreen reputation, but Windows should show its verified publisher instead of “Unknown publisher.”
+After both secrets are configured, create a stable `windows-v*` release. A newly issued certificate may still need to build SmartScreen reputation, but Windows should show its verified publisher instead of “Unknown publisher.”

@@ -7,7 +7,7 @@ on:
         description: Windows release tag
         required: true
         type: string
-        default: windows-v2.1.0
+        default: windows-v2.1.0-beta.1
   push:
     tags:
       - 'windows-v*'
@@ -38,7 +38,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           $version = $env:RELEASE_TAG -replace '^windows-v', ''
+          $isPrerelease = $version -match '-beta\.\d+$'
           "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+          "IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_ENV
 
       - name: Check out pinned XMCL runtime
         shell: pwsh
@@ -72,6 +74,7 @@ jobs:
           Copy-Item 'xmcl-electron-app/build/Moon-Third-Party-Notices.txt' $destination
 
       - name: Sign and verify Windows installer
+        if: ${{ !contains(inputs.release_tag || github.ref_name, '-beta.') }}
         shell: pwsh
         env:
           WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
@@ -99,17 +102,15 @@ jobs:
             if (-not $signTool) { throw 'Windows SDK signtool.exe was not found.' }
 
             $installers = @(Get-ChildItem -Path 'windows/dist' -Filter '*.exe' | Sort-Object Name)
-            if ($installers.Count -ne 2) { throw "Expected ia32 and x64 installers, found $($installers.Count)." }
-            foreach ($architecture in @('ia32', 'x64')) {
-              $installer = $installers | Where-Object { $_.Name -match "-$architecture\.exe$" }
-              if (-not $installer) { throw "Missing $architecture installer." }
+            if ($installers.Count -ne 1) { throw "Expected one x64 installer, found $($installers.Count)." }
+            $installer = $installers | Where-Object { $_.Name -match '-x64\.exe$' }
+            if (-not $installer) { throw 'Missing x64 installer.' }
 
-              & $signTool.FullName sign /fd SHA256 /td SHA256 /tr 'http://timestamp.digicert.com' /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /d "Moon Launcher $architecture" $installer.FullName
-              if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $architecture." }
+            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr 'http://timestamp.digicert.com' /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /d 'Moon Launcher x64' $installer.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Authenticode signing failed for x64.' }
 
-              & $signTool.FullName verify /pa /all /v $installer.FullName
-              if ($LASTEXITCODE -ne 0) { throw "Authenticode verification failed for $architecture; release was stopped." }
-            }
+            & $signTool.FullName verify /pa /all /v $installer.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Authenticode verification failed for x64; release was stopped.' }
           } finally {
             Remove-Item $certificatePath -Force -ErrorAction SilentlyContinue
           }
@@ -126,6 +127,6 @@ jobs:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
           name: Moon Launcher v${{ env.RELEASE_VERSION }}
-          prerelease: false
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
           files: windows/dist/*

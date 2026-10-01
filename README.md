@@ -27,9 +27,9 @@ Cloudflare Tunnel exposes a service running elsewhere; it does not host the webs
 
 ## Windows Release
 
-The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Moon Launcher v2.1.0 targets Windows 10 version 1903 or later and Windows 11 x64. It publishes separate `ia32` (for 32-bit Windows 10 and 32-bit apps on x64 Windows) and `x64` installers. Windows 11 itself is not available as a 32-bit operating system. The release adds a branded home dashboard, a real launch button, direct shortcuts for mods, modpacks, resource packs, shaders, data packs, installed content, and `.mrpack` import, plus category icons in the sidebar. Login offers Microsoft, offline, and Ely.by choices.
+The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Moon Launcher v2.1.0 targets Windows 10 version 1903 or later and Windows 11 x64, and publishes an x64 installer only. The release adds a branded home dashboard, a real launch button, direct shortcuts for mods, modpacks, resource packs, shaders, data packs, installed content, and `.mrpack` import, plus category icons in the sidebar. Login offers Microsoft, offline, and Ely.by choices.
 
-Windows release builds require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md); the workflow refuses to publish unsigned installers. After configuring those secrets, run the `Windows Release` workflow or push the stable `windows-v2.1.0` tag to produce `MoonLauncher-v2.1.0-ia32.exe` and `MoonLauncher-v2.1.0-x64.exe`. Windows tags must not include a beta suffix. The upstream MIT notice is included with the release.
+Stable Windows releases require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md). The `windows-v2.1.0-beta.1` prerelease can be published unsigned for testing and may trigger SmartScreen warnings. It produces `MoonLauncher-v2.1.0-beta.1-x64.exe`. The upstream MIT notice is included with the release.
 
 ## GitHub Release
 
@@ -40,4 +40,4 @@ git tag v1.5.0-beta.3
 git push origin v1.5.0-beta.3
 ```
 
-Windows uses stable `windows-v2.1.0` tags and publishes separately.
+Windows uses `windows-v*` tags and publishes separately.

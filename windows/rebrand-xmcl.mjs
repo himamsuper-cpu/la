@@ -6,9 +6,9 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.1.0';
+const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.1';
 const appVersion = releaseTag.replace(/^windows-v/, '');
-if (!/^\d+\.\d+\.\d+$/.test(appVersion)) throw new Error(`Windows releases require a stable version tag: ${releaseTag}`);
+if (!/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(appVersion)) throw new Error(`Invalid Windows release tag: ${releaseTag}`);
 
 async function replaceOnce(file, before, after) {
   const source = await readFile(file, 'utf8');
@@ -73,7 +73,7 @@ await replaceOnce(builderConfig, `target: [
       'appx',
     ],`, `target: [{
       target: 'nsis',
-      arch: ['ia32', 'x64'],
+        arch: ['x64'],
     }],`);
 
 const appPackagePath = path.join(electronApp, 'package.json');
