@@ -6,7 +6,7 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.2';
+const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.3';
 const appVersion = releaseTag.replace(/^windows-v/, '');
 if (!/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(appVersion)) throw new Error(`Invalid Windows release tag: ${releaseTag}`);
 
