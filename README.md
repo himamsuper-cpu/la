@@ -21,7 +21,7 @@ The legacy Capacitor web shell can still be built locally with:
 npm run android:apk
 ```
 
-The repository does not yet contain hosted chat, voice rooms, group invites, a premium-key store, or a public website. Those features need an online backend; real-time voice also needs WebRTC signaling and a TURN service. Microsoft login needs a registered OAuth application, and payments need a payment provider and server-side entitlement checks.
+The Windows launcher includes private voice rooms for up to eight people. The token service is in [`voice-server/README.md`](voice-server/README.md), but this repository does not provide a hosted voice endpoint or LiveKit media server. Deploy the token service over HTTPS and connect it to a reachable LiveKit Cloud or self-hosted server before friends can join from other networks. The Android launcher and legacy web shell do not include voice rooms. Hosted chat, group invites, a premium-key store, and a public website still need their own backend; Microsoft login needs a registered OAuth application, and payments need a provider and server-side entitlement checks.
 
 Cloudflare Tunnel exposes a service running elsewhere; it does not host the website or guarantee faster rendering/downloads. Cloudflare Pages/Workers and object storage can host those parts, but actual speed depends on the origin, network, region, and assets. Minecraft FPS likewise depends on the device and game settings; the launcher cannot guarantee 500–1000 FPS.
 
@@ -29,7 +29,7 @@ Cloudflare Tunnel exposes a service running elsewhere; it does not host the webs
 
 The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Moon Launcher v2.1.0 targets Windows 10 version 1903 or later and Windows 11 x64, and publishes an x64 installer only. The release adds a branded home dashboard, a real launch button, direct shortcuts for mods, modpacks, resource packs, shaders, data packs, installed content, and `.mrpack` import, plus category icons in the sidebar. Login offers Microsoft, offline, and Ely.by choices.
 
-Stable Windows releases require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md). The `windows-v2.1.0-beta.1` prerelease can be published unsigned for testing and may trigger SmartScreen warnings. It produces `MoonLauncher-v2.1.0-beta.1-x64.exe`. The upstream MIT notice is included with the release.
+Windows builds require a `CURSEFORGE_API_KEY` repository Actions secret. The key is embedded in the public desktop binary by the upstream runtime, so use a key approved for distribution in a desktop client; do not treat it as confidential after publishing. Stable Windows releases also require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md). The `windows-v2.1.0-beta.*` prereleases can be published unsigned for testing and may trigger SmartScreen warnings. They produce `MoonLauncher-v2.1.0-beta.N-x64.exe`. The upstream MIT notice is included with every release.
 
 ## GitHub Release
 

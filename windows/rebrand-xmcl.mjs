@@ -6,7 +6,7 @@ import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
-const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.1';
+const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.2';
 const appVersion = releaseTag.replace(/^windows-v/, '');
 if (!/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(appVersion)) throw new Error(`Invalid Windows release tag: ${releaseTag}`);
 
@@ -39,6 +39,14 @@ async function rebrandTextFiles(directory) {
 const electronApp = path.join(xmclRoot, 'xmcl-electron-app');
 const renderer = path.join(xmclRoot, 'xmcl-keystone-ui');
 const builderConfig = path.join(electronApp, 'build/electron-builder.config.ts');
+const uiPackagePath = path.join(renderer, 'package.json');
+const uiPackage = JSON.parse(await readFile(uiPackagePath, 'utf8'));
+uiPackage.dependencies['livekit-client'] = '2.22.3';
+await writeFile(uiPackagePath, `${JSON.stringify(uiPackage, null, 4)}\n`);
+await copyFile(
+  path.join(projectRoot, 'windows/MoonVoiceRoom.vue'),
+  path.join(renderer, 'src/views/MoonVoiceRoom.vue'),
+);
 await replaceOnce(builderConfig, "productName: 'XMCL',", "productName: 'Moon Launcher',");
 await replaceOnce(builderConfig, "appId: 'xmcl',", "appId: 'id.noom.launcher.windows',");
 await replaceOnce(builderConfig, "name: 'XMCL',", "name: 'Moon Launcher',");
@@ -89,10 +97,16 @@ await replaceOnce(
 const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
 const homeView = path.join(renderer, 'src/views/Home.vue');
 const sidebarView = path.join(renderer, 'src/views/AppSideBarClassic.vue');
+const vuetifyConfig = path.join(renderer, 'src/vuetify.ts');
+await replaceOnce(
+  vuetifyConfig,
+  "primary: '#4caf50',\n          accent: '#00e676',",
+  "primary: '#79cba4',\n          accent: '#f2b56b',",
+);
 await replaceOnce(
   homeView,
   "import HomeCriticalError from './HomeCriticalError.vue'",
-  "import moonLogo from '@/assets/moon-logo.png'\nimport moonHero from '@/assets/moon-hero.webp'\nimport HomeCriticalError from './HomeCriticalError.vue'",
+  "import MoonVoiceRoom from './MoonVoiceRoom.vue'\nimport moonLogo from '@/assets/moon-logo.png'\nimport moonHero from '@/assets/moon-hero.webp'\nimport HomeCriticalError from './HomeCriticalError.vue'",
 );
 await replaceOnce(
   loginForm,
@@ -152,6 +166,7 @@ await replaceOnce(
                   <div class="moon-hero__caption">MINECRAFT JAVA EDITION</div>
                 </div>
               </div>
+              <div class="moon-hero__eyebrow"><v-icon size="15">nightlight</v-icon> YOUR WORLD, READY TO PLAY</div>
               <h1>{{ instance.name || ('Minecraft ' + instance.runtime.minecraft) }}</h1>
               <div class="moon-hero__status">
                 <span class="moon-hero__status-dot" />
@@ -169,7 +184,7 @@ await replaceOnce(
             <div class="moon-quick-access__group">
               <h2 class="moon-quick-access__heading">
                 <span class="moon-quick-access__index">01</span>
-                <v-icon size="18">explore</v-icon>
+                <v-icon class="moon-section-icon" size="18">explore</v-icon>
                 {{ t('store.discover') }}
               </h2>
               <div class="moon-quick-access__grid">
@@ -183,7 +198,7 @@ await replaceOnce(
                   color="primary"
                   class="moon-action-button min-h-12 justify-start text-left"
                 >
-                  <v-icon start>{{ action.icon }}</v-icon>
+                  <v-icon start class="moon-action-button__icon">{{ action.icon }}</v-icon>
                   {{ action.label }}
                 </v-btn>
               </div>
@@ -191,7 +206,7 @@ await replaceOnce(
             <div class="moon-quick-access__group">
               <h2 class="moon-quick-access__heading">
                 <span class="moon-quick-access__index">02</span>
-                <v-icon size="18">tune</v-icon>
+                <v-icon class="moon-section-icon" size="18">tune</v-icon>
                 {{ t('shared.manage') }}
               </h2>
               <div class="moon-quick-access__grid">
@@ -204,7 +219,7 @@ await replaceOnce(
                   variant="outlined"
                   class="moon-action-button min-h-12 justify-start text-left"
                 >
-                  <v-icon start>{{ action.icon }}</v-icon>
+                  <v-icon start class="moon-action-button__icon">{{ action.icon }}</v-icon>
                   {{ action.label }}
                 </v-btn>
                 <v-btn
@@ -215,11 +230,14 @@ await replaceOnce(
                   :loading="importingModpack"
                   @click="importModpack"
                 >
-                  <v-icon start>drive_folder_upload</v-icon>
+                  <v-icon start class="moon-action-button__icon">drive_folder_upload</v-icon>
                   {{ t('instance.installModpack') }}
                 </v-btn>
               </div>
             </div>
+          </section>
+          <section class="mx-3 mb-6" data-testid="moon-voice-room">
+            <MoonVoiceRoom />
           </section>
           <HomeGrid />`,
 );
@@ -342,12 +360,12 @@ await replaceOnce(
   position: relative;
   isolation: isolate;
   display: flex;
-  min-height: 270px;
+  min-height: 310px;
   align-items: center;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 16px;
-  background: #17231d;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.16);
+  border-radius: 10px;
+  background: #151d1b;
 }
 
 .moon-hero__art {
@@ -358,7 +376,7 @@ await replaceOnce(
   height: 100%;
   object-fit: cover;
   object-position: center 44%;
-  filter: saturate(0.84);
+  filter: saturate(0.9) contrast(1.04);
 }
 
 .moon-hero::after {
@@ -366,15 +384,15 @@ await replaceOnce(
   inset: 0;
   z-index: -1;
   content: '';
-  background: linear-gradient(90deg, rgba(13, 20, 16, 0.96) 0%, rgba(13, 20, 16, 0.82) 45%, rgba(13, 20, 16, 0.18) 100%);
+  background: linear-gradient(90deg, rgba(13, 19, 18, 0.97) 0%, rgba(13, 19, 18, 0.82) 48%, rgba(13, 19, 18, 0.12) 100%);
 }
 
 .moon-hero__content {
   display: flex;
-  width: min(680px, 76%);
+  width: min(720px, 78%);
   flex-direction: column;
   align-items: flex-start;
-  padding: 30px 36px;
+  padding: 32px 40px;
   color: #f3f4ec;
 }
 
@@ -387,7 +405,8 @@ await replaceOnce(
 .moon-hero__logo {
   width: 52px;
   height: 52px;
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
   object-fit: cover;
 }
 
@@ -403,8 +422,18 @@ await replaceOnce(
   line-height: 1.5;
 }
 
+.moon-hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 24px;
+  color: #f2b56b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .moon-hero h1 {
-  margin: 22px 0 8px;
+  margin: 10px 0 8px;
   color: #f3f4ec;
   font-size: 36px;
   font-weight: 750;
@@ -433,8 +462,9 @@ await replaceOnce(
 }
 
 .moon-hero__play {
-  min-width: 168px;
-  min-height: 48px;
+  min-width: 174px;
+  min-height: 50px;
+  border-radius: 6px;
   font-weight: 750;
 }
 
@@ -444,10 +474,10 @@ await replaceOnce(
 
 .moon-quick-access__group {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.09);
-  border-radius: 12px;
-  background: rgba(var(--v-theme-surface), 0.72);
+  padding: 18px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.56);
 }
 
 .moon-quick-access__heading {
@@ -465,6 +495,15 @@ await replaceOnce(
   font-variant-numeric: tabular-nums;
 }
 
+.moon-section-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-accent), 0.16);
+  color: rgb(var(--v-theme-accent));
+}
+
 .moon-quick-access__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -478,6 +517,32 @@ await replaceOnce(
   text-align: left;
 }
 
+.moon-action-button .moon-action-button__icon {
+  display: grid;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-primary), 0.16);
+  color: rgb(var(--v-theme-primary));
+}
+
+.sidebar .sidebar-item__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(var(--v-theme-primary), 0.12);
+  color: rgb(var(--v-theme-primary));
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.sidebar a[aria-current='page'] .sidebar-item__icon,
+.sidebar :is(a, button):hover .sidebar-item__icon {
+  background: rgba(var(--v-theme-accent), 0.2);
+  color: rgb(var(--v-theme-accent));
+}
+
 @media (max-width: 1000px) {
   .moon-quick-access {
     grid-template-columns: minmax(0, 1fr);
@@ -486,12 +551,12 @@ await replaceOnce(
 
 @media (max-width: 700px) {
   .moon-hero {
-    min-height: 250px;
+    min-height: 270px;
   }
 
   .moon-hero__content {
     width: 100%;
-    padding: 24px;
+    padding: 22px;
   }
 
   .moon-hero h1 {

@@ -7,7 +7,7 @@ on:
         description: Windows release tag
         required: true
         type: string
-        default: windows-v2.1.0-beta.1
+        default: windows-v2.1.0-beta.2
   push:
     tags:
       - 'windows-v*'
@@ -61,8 +61,23 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: node windows/rebrand-xmcl.mjs "$env:XMCL_SOURCE" "$env:RELEASE_TAG"
 
+      - name: Install Moon voice room dependency
+        shell: pwsh
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Verify CurseForge API key
+        shell: pwsh
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CURSEFORGE_API_KEY)) {
+            throw 'Set the CURSEFORGE_API_KEY repository Actions secret before building the Windows launcher.'
+          }
+
       - name: Build Windows installer
         shell: pwsh
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
         run: |
           Set-Location $env:XMCL_SOURCE
           pnpm run build:renderer
