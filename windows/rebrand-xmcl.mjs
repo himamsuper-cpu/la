@@ -7,7 +7,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const xmclRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out XMCL source directory.');
 const releaseTag = process.argv[3] || 'windows-v2.1.0-beta.4';
-const appVersion = releaseTag.replace(/^windows-v/, '');
+const appVersion = releaseTag.replace(/^(?:windows|linux)-v/, '');
 if (!/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(appVersion)) throw new Error(`Invalid Windows release tag: ${releaseTag}`);
 
 async function replaceOnce(file, before, after) {
@@ -83,6 +83,39 @@ await replaceOnce(builderConfig, `target: [
       target: 'nsis',
         arch: ['x64'],
     }],`);
+await replaceOnce(builderConfig, `  linux: {
+    executableName: 'xmcl',
+    electronLanguages: ['en-US'],
+    desktop: {
+      entry: {
+        MimeType: 'x-scheme-handler/xmcl',
+        StartupWMClass: 'xmcl',
+      },
+    },
+    category: 'Game',
+    icon: 'icons/dark.icns',
+    artifactName: 'xmcl-\${version}-\${arch}.\${ext}',
+    target: [
+      { target: 'deb', arch: ['x64', 'arm64'] },
+      { target: 'rpm', arch: ['x64', 'arm64'] },
+      { target: 'AppImage', arch: ['x64', 'arm64'] },
+      { target: 'tar.xz', arch: ['x64', 'arm64'] },
+      { target: 'pacman', arch: ['x64', 'arm64'] },
+    ],
+  },`, `  linux: {
+    executableName: 'moon-launcher',
+    electronLanguages: ['en-US'],
+    desktop: {
+      entry: {
+        MimeType: 'x-scheme-handler/noom',
+        StartupWMClass: 'moon-launcher',
+      },
+    },
+    category: 'Game',
+    icon: 'icons/moon-256.png',
+    artifactName: 'MoonLauncher-v\${version}-\${arch}.\${ext}',
+    target: [{ target: 'AppImage', arch: ['x64'] }],
+  },`);
 
 const appPackagePath = path.join(electronApp, 'package.json');
 const appPackage = JSON.parse(await readFile(appPackagePath, 'utf8'));
@@ -103,6 +136,25 @@ const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
 const homeView = path.join(renderer, 'src/views/Home.vue');
 const sidebarView = path.join(renderer, 'src/views/AppSideBarClassic.vue');
 const vuetifyConfig = path.join(renderer, 'src/vuetify.ts');
+const searchModel = path.join(renderer, 'src/composables/search.ts');
+const marketFilterPanel = path.join(renderer, 'src/components/MarketFilterPanel.vue');
+if (releaseTag.startsWith('windows-v')) {
+  await replaceOnce(
+    searchModel,
+    "const isCurseforgeActive = useLocalStorage('marketCurseforgeActive', true, { writeDefaults: false })",
+    "const isCurseforgeActive = useLocalStorage('marketCurseforgeActive', false, { writeDefaults: false })",
+  );
+  await replaceOnce(
+    searchModel,
+    "useQueryOverride('curseforgeActive', isCurseforgeActive, isCurseforgeActive, searlizers.boolean)",
+    "useQueryOverride('curseforgeActive', isCurseforgeActive, isCurseforgeActive, searlizers.boolean)\n    isCurseforgeActive.value = false",
+  );
+  await replaceOnce(
+    marketFilterPanel,
+    '<div v-if="curseforgeCategoryFilter" class="filter-category-column">',
+    '<div v-if="false" class="filter-category-column">',
+  );
+}
 await replaceOnce(
   vuetifyConfig,
   "primary: '#4caf50',\n          accent: '#00e676',",
@@ -117,7 +169,7 @@ await replaceOnce(
   loginForm,
   `    <UserLoginAuthoritySelect
       v-model="authority"`,
-  `    <div class="mb-4 grid grid-cols-3 gap-2" data-testid="quick-login-providers">
+  `    <div class="mb-4 grid grid-cols-2 gap-2" data-testid="quick-login-providers">
       <v-btn
         data-testid="quick-login-microsoft"
         :variant="authority === AUTHORITY_MICROSOFT ? 'flat' : 'tonal'"
@@ -140,11 +192,21 @@ await replaceOnce(
         data-testid="quick-login-elyby"
         :variant="authority.includes('ely.by') ? 'flat' : 'tonal'"
         :color="authority.includes('ely.by') ? 'primary' : undefined"
-        :loading="isAddingElyBy"
+        :loading="isAddingYggdrasil"
         @click="chooseElyBy"
       >
         <v-icon start size="17">public</v-icon>
         Ely.by
+      </v-btn>
+      <v-btn
+        data-testid="quick-login-littleskin"
+        :variant="authority.includes('littleskin.cn') ? 'flat' : 'tonal'"
+        :color="authority.includes('littleskin.cn') ? 'primary' : undefined"
+        :loading="isAddingYggdrasil"
+        @click="chooseLittleSkin"
+      >
+        <v-icon start size="17">face</v-icon>
+        LittleSkin
       </v-btn>
     </div>
     <v-alert v-if="quickAuthError" type="warning" density="compact" variant="tonal" class="mb-3">
@@ -316,25 +378,25 @@ await replaceOnce(
 );
 await replaceOnce(
   sidebarView,
-  `    <div
-      ref="instancesScrollEl"`,
-  `    <div v-roving-tabindex role="group" class="sidebar__section sidebar__quick-links">
-      <AppSideBarItem
-        v-for="action in marketShortcuts"
-        :key="action.id"
-        :data-testid="\`nav-content-\${action.id}\`"
-        v-shared-tooltip.right="() => action.label"
-        :to="action.to"
-        :aria-label="action.label"
-      >
-        <v-icon class="sidebar-item__icon" :size="22">{{ action.icon }}</v-icon>
-      </AppSideBarItem>
-    </div>
-
-    <div class="sidebar__divider" />
-
-    <div
-      ref="instancesScrollEl"`,
+  `      class="sidebar__instances"
+    >
+      <AppSideBarInstances />`,
+  `      class="sidebar__instances"
+    >
+      <div v-roving-tabindex role="group" class="sidebar__section sidebar__quick-links">
+        <AppSideBarItem
+          v-for="action in marketShortcuts"
+          :key="action.id"
+          :data-testid="\`nav-content-\${action.id}\`"
+          v-shared-tooltip.right="() => action.label"
+          :to="action.to"
+          :aria-label="action.label"
+        >
+          <v-icon class="sidebar-item__icon" :size="24">{{ action.icon }}</v-icon>
+        </AppSideBarItem>
+      </div>
+      <div class="sidebar__divider" />
+      <AppSideBarInstances />`,
 );
 await replaceOnce(
   sidebarView,
@@ -600,12 +662,35 @@ await replaceOnce(
 
 .sidebar .sidebar-item__icon {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   background: rgba(var(--v-theme-primary), 0.12);
   color: rgb(var(--v-theme-primary));
   transition: background-color 140ms ease, color 140ms ease;
+}
+
+.sidebar .sidebar-item,
+.sidebar .sidebar-item__content {
+  width: 56px;
+  height: 56px;
+}
+
+.sidebar .sidebar__instances {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--v-theme-on-surface), 0.32) transparent;
+  overscroll-behavior-y: contain;
+}
+
+.sidebar .sidebar__instances::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  display: block;
+}
+
+.sidebar .sidebar__instances::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background-color: rgba(var(--v-theme-on-surface), 0.32);
 }
 
 .sidebar a[aria-current='page'] .sidebar-item__icon,
@@ -645,8 +730,9 @@ await replaceOnce(
   emit('seed')
 })
 
-const ELY_BY_AUTHORITY = 'https://authserver.ely.by/api/yggdrasil'
-const isAddingElyBy = ref(false)
+const ELY_BY_AUTHORITY = 'https://authserver.ely.by/api/authlib-injector'
+const LITTLE_SKIN_AUTHORITY = 'https://littleskin.cn/api/yggdrasil'
+const isAddingYggdrasil = ref(false)
 const quickAuthError = ref('')
 
 function chooseQuickAuthority(value: string) {
@@ -659,11 +745,11 @@ function chooseQuickAuthority(value: string) {
   nextTick(() => accountInput.value?.focus())
 }
 
-async function chooseElyBy() {
+async function chooseYggdrasilProvider(host, authorityUrl) {
   quickAuthError.value = ''
   const existingElyBy = items.value.find((item) => {
     try {
-      return new URL(item.value).hostname === 'authserver.ely.by'
+      return new URL(item.value).hostname === host
     } catch {
       return false
     }
@@ -673,15 +759,30 @@ async function chooseElyBy() {
     return
   }
 
-  isAddingElyBy.value = true
+  isAddingYggdrasil.value = true
   try {
-    await addYggdrasilService(ELY_BY_AUTHORITY)
-    chooseQuickAuthority(ELY_BY_AUTHORITY)
+    await addYggdrasilService(authorityUrl)
+    const added = items.value.find((item) => {
+      try {
+        return new URL(item.value).hostname === host
+      } catch {
+        return false
+      }
+    })
+    chooseQuickAuthority(added?.value || authorityUrl)
   } catch {
     quickAuthError.value = t('loginError.badNetworkOrServer')
   } finally {
-    isAddingElyBy.value = false
+    isAddingYggdrasil.value = false
   }
+}
+
+function chooseElyBy() {
+  return chooseYggdrasilProvider('authserver.ely.by', ELY_BY_AUTHORITY)
+}
+
+function chooseLittleSkin() {
+  return chooseYggdrasilProvider('littleskin.cn', LITTLE_SKIN_AUTHORITY)
 }`,
 );
 
@@ -703,4 +804,5 @@ await writeFile(
   "import { LauncherAppPlugin } from '@xmcl/runtime/app'\n\nexport const pluginAutoUpdate: LauncherAppPlugin = async () => {}\n",
 );
 
-console.log(`Prepared Moon Launcher Windows ${appVersion}.`);
+const releasePlatform = releaseTag.startsWith('linux-v') ? 'Linux' : 'Windows';
+console.log(`Prepared Moon Launcher ${releasePlatform} ${appVersion}.`);
